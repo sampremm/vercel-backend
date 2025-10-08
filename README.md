@@ -4,11 +4,14 @@
 The **Vercel Backend** project serves as the backend for the **Vercel** application. It is designed to handle deployments of front-end applications by providing secure APIs for processing, managing, and serving static assets on the cloud. This backend uses **Node.js** and **Express.js** and integrates with **AWS services** to provide a scalable and secure platform for front-end application deployment.
 
 ## Technologies Used
+ HEAD
 - **Backend**: Node.js, Express.js
 - **Containerization**: Docker
 - **Cloud Services**: AWS (ECS, ECR, S3)
 - **Security**: AWS IAM for role-based access control
 - **Deployment**: Docker, AWS ECS, and AWS S3 for static file hosting
+- *x
+ b8ae472 (completed the bugs of the builder server script)
 
 ## Features
 - **Dockerized Backend**: The backend is containerized using **Docker** to ensure isolation and portability.

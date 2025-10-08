@@ -1,11 +1,12 @@
-require('dotenv').config();
+const dotenv = require('dotenv');
 const express = require('express');
+const { json } = require('express');
 const { generateSlug } = require('random-word-slugs');
 const { ECSClient, RunTaskCommand } = require('@aws-sdk/client-ecs');
-
+dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 9000;
-app.use(express.json());
+app.use(json());
 
 const ecsClient = new ECSClient({
     region: process.env.AWS_REGION,
