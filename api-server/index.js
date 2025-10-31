@@ -1,62 +1,66 @@
-const dotenv = require('dotenv');
+// api-server.js
 const express = require('express');
 const { json } = require('express');
 const { generateSlug } = require('random-word-slugs');
 const { ECSClient, RunTaskCommand } = require('@aws-sdk/client-ecs');
-dotenv.config();
+require('dotenv').config();
+
 const app = express();
-const PORT = process.env.PORT || 9000;
 app.use(json());
 
-const ecsClient = new ECSClient({
-    region: process.env.AWS_REGION,
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-    }
-});
+const PORT = process.env.API_PORT || 9000;
+const BASE_URL = process.env.BASE_URL || 'http://localhost:8000'; // points to reverse proxy
+const S3_BASE = process.env.S3_BASE || 'https://vercel-project-clone.s3.ap-south-1.amazonaws.com/__outputs';
 
-const config = {
-    CLUSTER: process.env.ECS_CLUSTER_ARN,
-    TASK: process.env.ECS_TASK_ARN
-};
+const ecsClient = new ECSClient({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+});
 
 app.post('/project', async (req, res) => {
-    const { gitURL, slug } = req.body;
-    const projectSlug = slug ? slug : generateSlug();
+  const { gitURL, slug } = req.body;
+  const projectSlug = slug || generateSlug();
 
-    const command = new RunTaskCommand({
-        cluster: config.CLUSTER,
-        taskDefinition: config.TASK,
-        launchType: 'FARGATE',
-        count: 1,
-        networkConfiguration: {
-            awsvpcConfiguration: {
-                assignPublicIp: 'ENABLED',
-                subnets: process.env.SUBNET_IDS.split(','),
-                securityGroups: [process.env.SECURITY_GROUP_ID]
-            }
-        },
-        overrides: {
-            containerOverrides: [
-                {
-                    name: 'builder-img', 
-                    environment: [
-                        { name: 'GIT_REPOSITORY__URL', value: gitURL }, 
-                        { name: 'PROJECT_ID', value: projectSlug }
-                    ]
-                }
-            ]
+  if (!gitURL || !gitURL.startsWith('http')) {
+    return res.status(400).json({ status: 'error', message: 'Invalid gitURL' });
+  }
+
+  const command = new RunTaskCommand({
+    cluster: process.env.ECS_CLUSTER_ARN,
+    taskDefinition: process.env.ECS_TASK_ARN,
+    launchType: 'FARGATE',
+    count: 1,
+    networkConfiguration: {
+      awsvpcConfiguration: {
+        assignPublicIp: 'ENABLED',
+        subnets: process.env.SUBNET_IDS.split(','),
+        securityGroups: [process.env.SECURITY_GROUP_ID]
+      }
+    },
+    overrides: {
+      containerOverrides: [
+        {
+          name: 'builder-img', // ECS container name
+          environment: [
+            { name: 'GIT_REPOSITORY__URL', value: gitURL },
+            { name: 'PROJECT_ID', value: projectSlug },
+            { name: 'S3_BASE', value: S3_BASE }
+          ]
         }
-    });
-
-    try {
-        await ecsClient.send(command);
-        res.json({ status: 'queued', data: { projectSlug, url: `http://${projectSlug}.localhost:8000` } });
-    } catch (error) {
-        console.error('Error launching task:', error);
-        res.status(500).json({ status: 'error', message: 'Failed to queue the project.' });
+      ]
     }
+  });
+
+  try {
+    await ecsClient.send(command);
+    res.json({ status: 'queued', data: { projectSlug, url: `${BASE_URL}/${projectSlug}/index.html` } });
+  } catch (error) {
+    console.error('Error launching ECS task:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to queue the project.' });
+  }
 });
 
-app.listen(PORT, () => console.log(`API Server Running on port ${PORT}`));
+app.listen(PORT, () => console.log(`API Server running on port ${PORT}`));

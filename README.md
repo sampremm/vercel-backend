@@ -1,35 +1,106 @@
 # Vercel Backend
 
 ## Overview
-The **Vercel Backend** project serves as the backend for the **Vercel** application. It is designed to handle deployments of front-end applications by providing secure APIs for processing, managing, and serving static assets on the cloud. This backend uses **Node.js** and **Express.js** and integrates with **AWS services** to provide a scalable and secure platform for front-end application deployment.
+A small backend suite to build, store and serve static front-end projects using AWS. This repo contains three services working together to clone, build, upload, and serve static sites:
 
-## Technologies Used
- HEAD
-- **Backend**: Node.js, Express.js
-- **Containerization**: Docker
-- **Cloud Services**: AWS (ECS, ECR, S3)
-- **Security**: AWS IAM for role-based access control
-- **Deployment**: Docker, AWS ECS, and AWS S3 for static file hosting
-- *x
- b8ae472 (completed the bugs of the builder server script)
+- api-server — Accepts project requests and queues builder tasks (ECS).
+- Build-Server — Clones a repo, runs the build inside the builder image, and uploads artifacts to S3.
+- S3-reverse-proxy — Simple Express proxy that serves S3-hosted outputs at /:projectSlug.
 
-## Features
-- **Dockerized Backend**: The backend is containerized using **Docker** to ensure isolation and portability.
-- **AWS Integration**:
-  - Utilizes **AWS ECS** for easy deployment and scaling of backend services.
-  - **AWS S3** is used to store and serve static assets (such as `index.html` and CSS/JS files).
-  - **AWS ECR** is used to store Docker images securely.
-- **Secure Authentication**: AWS IAM roles and policies are set up to provide secure and granular access to the required AWS services.
-- **API Endpoints**: Provides API endpoints for managing deployments, file uploads, and other operations related to the front-end applications.
+## Repository layout
+- api-server/
+  - index.js
+  - package.json
+  - .env
+- Build-Server/
+  - script.js
+  - Dockerfile
+  - main.sh
+  - package.json
+  - .env
+- S3-reverse-proxy/
+  - index.js
+  - package.json
+  - .env
 
-![image](https://github.com/user-attachments/assets/d3939c0a-a8b7-47ca-886e-05c2fd984aa8)
+## Key behaviors
+- Builder detects common frameworks (Vite, Next, CRA) and runs the appropriate build command.
+- Build artifacts are uploaded to S3 under __outputs/<PROJECT_ID>.
+- Reverse proxy rewrites incoming /:projectSlug requests to S3 path /__outputs/:projectSlug/... and serves index.html for root requests.
+- API server triggers ECS RunTask with overrides to start the builder container.
 
-## Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/sampremm/vercel-backend.git
-   cd vercel-backend
+## Prerequisites
+- Node.js (>= 18 recommended)
+- npm
+- Docker (for building the builder image and running locally / ECS)
+- AWS account + credentials (IAM user/role with S3 and ECS permissions)
+
+## Environment variables
+Each service reads a local `.env`. Example important variables:
+
+Build-Server/.env
+- AWS_REGION (default ap-south-1)
+- AWS_ACCESS_KEY_ID
+- AWS_SECRET_ACCESS_KEY
+- PROJECT_ID (for local testing; in ECS this is passed as override)
+- BUCKET (optional, default: vercel-project-clone)
+
+api-server/.env
+- API_PORT (default 9000)
+- BASE_URL (reverse proxy base, default http://localhost:8000)
+- AWS_REGION
+- AWS_ACCESS_KEY_ID
+- AWS_SECRET_ACCESS_KEY
+- ECS_CLUSTER_ARN
+- ECS_TASK_ARN
+- SUBNET_IDS (comma separated)
+- SECURITY_GROUP_ID
+
+S3-reverse-proxy/.env
+- PROXY_PORT (default 8000)
+- S3_BASE (S3 base URL, default points at vercel-project-clone bucket)
+
+Notes:
+- Ensure `require('dotenv').config()` is present at the top of service entry files so local `.env` values are loaded.
+- This repo uses CommonJS (`require`). If you prefer ES modules, add `"type": "module"` to package.json and convert imports.
+
+## Quick start (local)
+1. Install dependencies for each service:
+   - cd api-server && npm install
+   - cd ../Build-Server && npm install
+   - cd ../S3-reverse-proxy && npm install
+
+2. Populate `.env` files with the required variables.
+
+3. Run services:
+- Reverse proxy (serves artifacts from S3):
+  - cd S3-reverse-proxy
+  - node index.js
+- API server (queues builder tasks):
+  - cd api-server
+  - node index.js
+- Run builder locally (for testing):
+  - cd Build-Server
+  - node script.js
+
+## Docker / ECS
+- Build the builder image:
+  - docker build -t builder-img Build-Server
+- Push to ECR and reference the image in your ECS task definition.
+- api-server triggers ECS RunTask with environment overrides (PROJECT_ID, GIT_REPOSITORY__URL, S3_BASE). Ensure ECS tasks/containers have either AWS credentials or an appropriate IAM role.
+
+## Troubleshooting
+- "Missing required environment variables" — ensure `.env` values are present and loaded before the script runs.
+- CommonJS vs ESM — keep imports consistent with package.json ("type": "module" absent means CommonJS).
+- If builder fails to upload: verify S3 bucket name, region, and IAM permissions.
+
+## Security
+- Never commit real AWS credentials. Use IAM roles in production, or secrets managers.
+- Sanitize logs before sharing.
+
+## Contact / Help
+Open an issue with logs and sanitized environment details if you need help.
 
 
-   
+
 
