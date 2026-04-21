@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/* --------------------- USER TABLE --------------------- */
+model User {
+  id        String    @id @default(uuid())
+  name      String
+  email     String    @unique
+  password  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  projects  Project[]
+}
+
+
+/* --------------------- PROJECT TABLE --------------------- */
+/*
+Each project = one repository the user wants to build & deploy.
+*/
+model Project {
+  id            String       @id @default(uuid())
+  slug          String       @unique
+  repositoryUrl String
+  framework     String       // e.g., 'vite', 'next', 'react', 'static'
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+
+  builds        Build[]
+  deployments   Deployment[]
+}
+
+
+/* --------------------- BUILD TABLE --------------------- */
+/*
+Each build = ECS task run triggered by API server.
+*/
+model Build {
+  id          String     @id @default(uuid())
+  status      BuildStatus @default(PENDING)   // pending | running | success | failed
+  logs        String?                              // optional text logs
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id])
+}
+
+enum BuildStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+
+/* --------------------- DEPLOYMENT TABLE --------------------- */
+/*
+One successful build → one deployment stored on S3.
+*/
+model Deployment {
+  id          String    @id @default(uuid())
+  buildId     String
+  s3Path      String              // e.g., "__outputs/<PROJECT_ID>/index.html"
+  url         String              // proxy URL → http://proxy.com/<slug>
+  createdAt   DateTime @default(now())
+
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+}
