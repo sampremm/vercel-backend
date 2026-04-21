@@ -4,9 +4,10 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-/* --------------------- USER TABLE --------------------- */
+// --------------------- USER TABLE ---------------------
 model User {
   id        String    @id @default(uuid())
   name      String
@@ -19,10 +20,8 @@ model User {
 }
 
 
-/* --------------------- PROJECT TABLE --------------------- */
-/*
-Each project = one repository the user wants to build & deploy.
-*/
+// --------------------- PROJECT TABLE ---------------------
+// Each project = one repository the user wants to build & deploy.
 model Project {
   id            String       @id @default(uuid())
   slug          String       @unique
@@ -39,10 +38,8 @@ model Project {
 }
 
 
-/* --------------------- BUILD TABLE --------------------- */
-/*
-Each build = ECS task run triggered by API server.
-*/
+// --------------------- BUILD TABLE ---------------------
+// Each build = ECS task run triggered by API server.
 model Build {
   id          String     @id @default(uuid())
   status      BuildStatus @default(PENDING)   // pending | running | success | failed
@@ -62,10 +59,8 @@ enum BuildStatus {
 }
 
 
-/* --------------------- DEPLOYMENT TABLE --------------------- */
-/*
-One successful build → one deployment stored on S3.
-*/
+// --------------------- DEPLOYMENT TABLE --------------------- 
+// One successful build -> one deployment stored on S3.
 model Deployment {
   id          String    @id @default(uuid())
   buildId     String

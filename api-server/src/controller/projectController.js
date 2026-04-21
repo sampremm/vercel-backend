@@ -11,20 +11,14 @@ export const handleProjectDeploy = async (req, res) => {
   }
 
   try {
-    // Scaffold Default User if missing (since Auth implementation triggers next)
-    let user = await prisma.user.findFirst();
-    if (!user) {
-      user = await prisma.user.create({
-        data: { name: 'Admin', email: 'admin@vercel.clone', password: 'hash' }
-      });
-    }
-
-    const project = await prisma.project.create({
-      data: {
+    const project = await prisma.project.upsert({
+      where: { slug: projectSlug },
+      update: { repositoryUrl: gitURL },
+      create: {
         slug: projectSlug,
         repositoryUrl: gitURL,
         framework: 'pending',
-        userId: user.id
+        userId: req.userId
       }
     });
 

@@ -18,11 +18,6 @@ function getECSClient() {
 export const deployProjectToECS = async (gitURL, projectSlug, buildId) => {
   const client = getECSClient();
   
-  if (gitURL.includes('example.com')) {
-    console.log('Skipping real ECS dispatch for test URL:', gitURL);
-    return { data: 'test-success' };
-  }
-
   const command = new RunTaskCommand({
     cluster: process.env.ECS_CLUSTER_ARN,
     taskDefinition: process.env.ECS_TASK_ARN,
@@ -38,7 +33,7 @@ export const deployProjectToECS = async (gitURL, projectSlug, buildId) => {
     overrides: {
       containerOverrides: [
         {
-          name: 'builder-img', // ECS container name
+          name: 'builder-image-task', // Exactly matches ECS containerName definition
           environment: [
             { name: 'GIT_REPOSITORY__URL', value: gitURL },
             { name: 'PROJECT_ID', value: projectSlug },
